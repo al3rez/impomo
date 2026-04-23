@@ -17,15 +17,23 @@ jobs:
         with:
           repository: ocornut/imgui
           path: imgui
+          fetch-depth: 1
 
-      - name: install deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libglfw3-dev libgl1-mesa-dev pkg-config file wget
+      - name: cache apt packages
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: libglfw3-dev libgl1-mesa-dev pkg-config file wget
+          version: 1.0
+
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: linux
 
       - name: build
         working-directory: impomo
-        run: make
+        env:
+          CXX: ccache g++
+        run: make -j$(nproc)
 
       - name: build AppImage
         working-directory: impomo
@@ -37,7 +45,6 @@ jobs:
           cp pomodoro $APPDIR/usr/bin/
           cp icon.png $APPDIR/usr/share/icons/hicolor/256x256/apps/pomodoro.png
 
-          # AppImage spec wants a desktop file and icon at the AppDir root too.
           cat > $APPDIR/pomodoro.desktop <<EOF
           [Desktop Entry]
           Type=Application
@@ -72,6 +79,9 @@ jobs:
 
   macos:
     runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,13 +91,20 @@ jobs:
         with:
           repository: ocornut/imgui
           path: imgui
+          fetch-depth: 1
 
       - name: install deps
         run: brew install glfw create-dmg
 
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: macos
+
       - name: build
         working-directory: impomo
-        run: make
+        env:
+          CXX: ccache clang++
+        run: make -j$(sysctl -n hw.ncpu)
 
       - name: bundle .app + .dmg
         working-directory: impomo
@@ -98,7 +115,6 @@ jobs:
 
           cp pomodoro "$APP/Contents/MacOS/ImPomo"
 
-          # Generate .icns from icon.png
           rm -rf icon.iconset
           mkdir icon.iconset
           sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png      >/dev/null
@@ -160,20 +176,32 @@ jobs:
         with:
           repository: ocornut/imgui
           path: imgui
+          fetch-depth: 1
 
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          update: true
+          update: false
+          cache: true
           install: >-
             make
-            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-gcc
             mingw-w64-x86_64-glfw
             mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-ccache
+
+      - name: cache ccache
+        uses: actions/cache@v4
+        with:
+          path: D:\a\_temp\msys64\home\runneradmin\.ccache
+          key: ccache-windows-${{ github.sha }}
+          restore-keys: ccache-windows-
 
       - name: build
         working-directory: impomo
-        run: make
+        env:
+          CXX: ccache g++
+        run: make -j$(nproc)
 
       - name: rename
         working-directory: impomo
