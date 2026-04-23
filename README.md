@@ -12,6 +12,14 @@ a pomodoro app i built in one evening with dear imgui because i kept opening bro
 - timer state survives app restarts. wall-clock based, so it ticks while the app is closed
 - clipart tomato in the taskbar, very official
 
+## grab a release
+
+ready builds on the [releases page](https://github.com/al3rez/impomo/releases):
+
+- linux: `ImPomo-x86_64.AppImage` (chmod +x and run)
+- macos: `ImPomo.dmg`
+- windows: `ImPomo.exe`
+
 ## running it
 
 you need imgui cloned next to this repo. on fedora:

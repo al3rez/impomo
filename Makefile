@@ -10,8 +10,25 @@ OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
 CXX ?= g++
 CXXFLAGS  = -std=c++11 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 CXXFLAGS += -O2 -Wall -Wformat
-CXXFLAGS += `pkg-config --cflags glfw3`
-LIBS = -lGL `pkg-config --static --libs glfw3`
+
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S), Linux)
+	CXXFLAGS += `pkg-config --cflags glfw3`
+	LIBS      = -lGL `pkg-config --static --libs glfw3`
+endif
+
+ifeq ($(UNAME_S), Darwin)
+	CXXFLAGS += -I/usr/local/include -I/opt/local/include -I/opt/homebrew/include
+	LIBS      = -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
+	LIBS     += -L/usr/local/lib -L/opt/local/lib -L/opt/homebrew/lib -lglfw
+endif
+
+ifeq ($(OS), Windows_NT)
+	EXE      := $(EXE).exe
+	CXXFLAGS += `pkg-config --cflags glfw3`
+	LIBS      = `pkg-config --static --libs glfw3` -lopengl32 -lgdi32 -limm32
+endif
 
 %.o:%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<

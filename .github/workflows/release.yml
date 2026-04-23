@@ -1,0 +1,205 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: impomo
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ocornut/imgui
+          path: imgui
+
+      - name: install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libglfw3-dev libgl1-mesa-dev pkg-config file wget
+
+      - name: build
+        working-directory: impomo
+        run: make
+
+      - name: build AppImage
+        working-directory: impomo
+        run: |
+          APPDIR=AppDir
+          mkdir -p $APPDIR/usr/bin \
+                   $APPDIR/usr/share/applications \
+                   $APPDIR/usr/share/icons/hicolor/256x256/apps
+          cp pomodoro $APPDIR/usr/bin/
+          cp icon.png $APPDIR/usr/share/icons/hicolor/256x256/apps/pomodoro.png
+
+          # AppImage spec wants a desktop file and icon at the AppDir root too.
+          cat > $APPDIR/pomodoro.desktop <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=ImPomo
+          Comment=Pomodoro timer with tasks and work history (ImGui)
+          Exec=pomodoro
+          Icon=pomodoro
+          Terminal=false
+          Categories=Utility;Office;
+          StartupWMClass=pomodoro
+          EOF
+          cp $APPDIR/pomodoro.desktop $APPDIR/usr/share/applications/
+          cp icon.png $APPDIR/pomodoro.png
+
+          cat > $APPDIR/AppRun <<'EOF'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "$0")")"
+          cd "$HERE"
+          exec "$HERE/usr/bin/pomodoro" "$@"
+          EOF
+          chmod +x $APPDIR/AppRun
+
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract >/dev/null
+          ./squashfs-root/AppRun $APPDIR ImPomo-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: impomo/ImPomo-x86_64.AppImage
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: impomo
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ocornut/imgui
+          path: imgui
+
+      - name: install deps
+        run: brew install glfw create-dmg
+
+      - name: build
+        working-directory: impomo
+        run: make
+
+      - name: bundle .app + .dmg
+        working-directory: impomo
+        run: |
+          APP="ImPomo.app"
+          rm -rf "$APP"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+
+          cp pomodoro "$APP/Contents/MacOS/ImPomo"
+
+          # Generate .icns from icon.png
+          rm -rf icon.iconset
+          mkdir icon.iconset
+          sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png      >/dev/null
+          sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png   >/dev/null
+          sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png      >/dev/null
+          sips -z 64 64     icon.png --out icon.iconset/icon_32x32@2x.png   >/dev/null
+          sips -z 128 128   icon.png --out icon.iconset/icon_128x128.png    >/dev/null
+          sips -z 256 256   icon.png --out icon.iconset/icon_128x128@2x.png >/dev/null
+          sips -z 256 256   icon.png --out icon.iconset/icon_256x256.png    >/dev/null
+          sips -z 512 512   icon.png --out icon.iconset/icon_256x256@2x.png >/dev/null
+          sips -z 512 512   icon.png --out icon.iconset/icon_512x512.png    >/dev/null
+          sips -z 1024 1024 icon.png --out icon.iconset/icon_512x512@2x.png >/dev/null
+          iconutil -c icns icon.iconset -o "$APP/Contents/Resources/icon.icns"
+          cp icon.png "$APP/Contents/Resources/icon.png"
+
+          cat > "$APP/Contents/Info.plist" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key><string>ImPomo</string>
+            <key>CFBundleIdentifier</key><string>com.al3rez.impomo</string>
+            <key>CFBundleName</key><string>ImPomo</string>
+            <key>CFBundleIconFile</key><string>icon</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>1.0</string>
+            <key>CFBundleVersion</key><string>1</string>
+            <key>LSMinimumSystemVersion</key><string>10.13</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          EOF
+
+          create-dmg \
+            --volname "ImPomo" \
+            --window-size 500 300 \
+            --icon-size 96 \
+            --icon "ImPomo.app" 140 120 \
+            --app-drop-link 360 120 \
+            ImPomo.dmg "$APP" \
+          || hdiutil create -volname ImPomo -srcfolder "$APP" -ov -format UDZO ImPomo.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: impomo/ImPomo.dmg
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: impomo
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ocornut/imgui
+          path: imgui
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            make
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-glfw
+            mingw-w64-x86_64-pkg-config
+
+      - name: build
+        working-directory: impomo
+        run: make
+
+      - name: rename
+        working-directory: impomo
+        run: mv pomodoro.exe ImPomo.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: impomo/ImPomo.exe
+
+  release:
+    needs: [linux, macos, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/linux/ImPomo-x86_64.AppImage
+            artifacts/macos/ImPomo.dmg
+            artifacts/windows/ImPomo.exe
+          generate_release_notes: true
