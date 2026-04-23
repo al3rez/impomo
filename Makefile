@@ -27,7 +27,9 @@ endif
 ifeq ($(OS), Windows_NT)
 	EXE      := $(EXE).exe
 	CXXFLAGS += `pkg-config --cflags glfw3`
-	LIBS      = `pkg-config --static --libs glfw3` -lopengl32 -lgdi32 -limm32
+	# -static pulls libgcc/libstdc++/libwinpthread into the .exe so it runs on a
+	# plain Windows box without MSYS2 DLLs.
+	LIBS      = -static `pkg-config --static --libs glfw3` -lopengl32 -lgdi32 -limm32
 endif
 
 %.o:%.cpp
