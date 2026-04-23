@@ -448,6 +448,10 @@ int main(int, char**) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
+    // HiDPI: scale window size with the monitor's content scale on Windows/X11.
+    // Wayland compositor handles scaling itself.
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+
     // App id / WM class — must match .desktop StartupWMClass so compositors
     // pair the window with the launcher icon.
 #ifdef GLFW_WAYLAND_APP_ID
@@ -481,6 +485,21 @@ int main(int, char**) {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     ImGui::StyleColorsDark();
+
+    // HiDPI: read content scale and scale the default font + widget sizes.
+    // On a standard 96-DPI display scale=1.0 and nothing changes. On a 2×
+    // HiDPI display font is 26px and padding is doubled, so the UI looks
+    // the same physical size but sharp.
+    float dpi_x = 1.0f, dpi_y = 1.0f;
+    glfwGetWindowContentScale(window, &dpi_x, &dpi_y);
+    float dpi_scale = (dpi_x > 0.0f ? dpi_x : 1.0f);
+    if (dpi_scale < 1.0f) dpi_scale = 1.0f;
+
+    ImFontConfig font_cfg;
+    font_cfg.SizePixels = 13.0f * dpi_scale;
+    io.Fonts->AddFontDefault(&font_cfg);
+    ImGui::GetStyle().ScaleAllSizes(dpi_scale);
+
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
@@ -551,21 +570,21 @@ int main(int, char**) {
 
         ImGui::Spacing();
         if (g_running) {
-            if (ImGui::Button("Pause", ImVec2(100, 32))) { g_running = false; save_state(); }
+            if (ImGui::Button("Pause", ImVec2(100 * dpi_scale, 32 * dpi_scale))) { g_running = false; save_state(); }
         } else {
             const char* lbl = (g_phase == PHASE_IDLE) ? "Start Work" : "Resume";
-            if (ImGui::Button(lbl, ImVec2(100, 32))) {
+            if (ImGui::Button(lbl, ImVec2(100 * dpi_scale, 32 * dpi_scale))) {
                 if (g_phase == PHASE_IDLE) start_phase(PHASE_WORK);
                 else { g_phase_end = glfwGetTime() + g_remaining; g_running = true; save_state(); }
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Reset", ImVec2(100, 32))) {
+        if (ImGui::Button("Reset", ImVec2(100 * dpi_scale, 32 * dpi_scale))) {
             g_phase = PHASE_IDLE; g_running = false; g_remaining = WORK_SECS;
             save_state();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Skip", ImVec2(100, 32))) {
+        if (ImGui::Button("Skip", ImVec2(100 * dpi_scale, 32 * dpi_scale))) {
             if (g_phase == PHASE_WORK) { record_pomodoro(); start_phase(PHASE_BREAK); }
             else if (g_phase == PHASE_BREAK) {
                 g_phase = PHASE_IDLE; g_running = false; g_remaining = WORK_SECS;
