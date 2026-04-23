@@ -210,11 +210,12 @@ static void load_history() {
 // ─────────────────────────────────────────────────────────────────────────
 
 static std::string format_date(time_t t) {
-    struct tm tm;
-    localtime_r(&t, &tm);
+    // App is single-threaded, so plain localtime() is fine. Using it avoids
+    // the POSIX/Windows split (localtime_r vs localtime_s).
+    struct tm* tm = std::localtime(&t);
     char buf[16];
     std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d",
-                  tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+                  tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
     return buf;
 }
 
