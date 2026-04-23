@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=ImPomo
+Comment=Pomodoro timer with tasks and work history (ImGui)
+Exec=/home/al3rez/Documents/Github/pomodoro/pomodoro
+Path=/home/al3rez/Documents/Github/pomodoro
+Icon=/home/al3rez/Documents/Github/pomodoro/icon.svg
+Terminal=false
+Categories=Utility;Office;
+StartupWMClass=pomodoro

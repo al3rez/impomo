@@ -1,0 +1,6 @@
+*.o
+pomodoro
+imgui.ini
+pomodoro_tasks.txt
+pomodoro_history.txt
+pomodoro_state.txt
